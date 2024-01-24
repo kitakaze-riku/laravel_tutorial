@@ -1,0 +1,68 @@
+# docker-composeで使用するCompose fileのバージョン指定
+version: '3'
+
+# アプリケーションを動かすための各要素のこと。servicesの中に、app、db、phpmyadminが子要素として設定されています。
+services:
+
+  # laravelを動かすコンテナがここから下に記載されています。
+  # ---------------------------------
+  # laravelを動かすコンテナ
+  # ---------------------------------
+  app:
+    #コンテナの名前をここで決めます。
+    container_name: laravel_app
+    # どのポートを繋ぐかという設定です。ホストの8080番ポートとコンテナの80番をつないでいる。80番ポートのバーチャルホストは000-default.confにて設定済みです。
+    ports:
+      - 8000:80
+    # Dockerfileの設定の場所を指定しています。Dockerfileの内容に基づいてビルドします。
+    build: ./docker/app
+    # コンテナとホスト側のディレクトリを同期する場所をここで指定しています。ここにlaravelのソースが入ります。
+    volumes:
+      - ./src:/var/www/html
+
+  # ----------------------------------
+  # MySQLを動かすコンテナ
+  # ----------------------------------
+  db:
+    #Docker HubからMySQL5.7の公式イメージを引っ張ってくる設定です。
+    image: mysql:8.0
+    # コンテナ名を指定しています。
+    container_name: laravel_db
+    # MySQLのコンテナ内の環境変数を指定しています。任意のものを設定してください。
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: laravel_db #任意のDB名
+      MYSQL_USER: user_name #任意のユーザー名
+      MYSQL_PASSWORD: user_pass #任意のパスワード名
+      TZ: 'Asia/Tokyo'
+
+    # 起動時のコマンド
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # 以下でディレクトリの同期をしています。
+    # 以下を書かないとコンテナを閉じたときにデータベースからデータがなくなるので注意してください。
+    # 詳しくは「docker 永続化」などで調べてみましょう
+    volumes:
+      - ./docker/db/volume:/var/lib/mysql
+      - ./docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+    # ホストの3306番ポートとコンテナのなかの3306番ポートとつなげる設定です。
+    ports:
+      - 3306:3306
+
+  # ----------------------------------
+  # phpMyAdminを動かすコンテナ
+  # ----------------------------------
+  phpmyadmin:
+    #DockerHubからphpmyadminのイメージを引っ張ってくる設定です。
+    image: phpmyadmin/phpmyadmin:latest
+    #コンテナ名を決めています。
+    container_name: laravel_phpmyadmin
+    # コンテナと他のサービスを繋げる
+    links:
+      - db
+    # localhost:8080 で phpmyadmin の管理画面にアクセス
+    ports:
+      - 8080:80
+    # セッション情報をボリュームに設定して永続化
+    volumes:
+      - ./docker/phpmyadmin/sessions:/sessions
+    platform: linux/amd64 # またはホスト環境に合わせたプラットフォーム
